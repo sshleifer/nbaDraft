@@ -154,12 +154,6 @@ def heightfix(df,flen):
 	df.final= (12*df.feet+df.inches).astype('float')
 	return df.final
 
-def strip(text):
-	try:
-		return text.strip()
-	except AttributeError:
-		return text
-
 def meas():
 	url='http://www.draftexpress.com/nba-pre-draft-measurements/?page=&year=All&source=All&sort2=ASC&draft=0&pos=0&sort='
 	df= pd.read_csv('dirtyMeas.csv')
