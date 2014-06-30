@@ -2,21 +2,18 @@ import pandas as pd
 import requests
 import os
 import os.path
-#import html5lib
-#import bs4
+import html5lib
+import bs4
 def col_stats_scrape(year):#CALL MERGE_PREP TO DO TWO STEPS IN ONE CALL """Usage: col_stats_scrape('2014') Roughly 2 mins per year."""
     front = 'http://www.draftexpress.com/stats.php?sort=8&q='
     frontb ='&league=NCAA&year=20'
     midA = '&league=NCAA&per=per40pace&qual=prospects&sort2=DESC&pos=all&stage=all&min=10&conference=All&pageno='
     back = '&sort=8'
     url = front + frontb + year + midA+ '0' + back
-
     eff_url = front + 'eff' + frontb + year + midA+ '0' + back
-    reg=pd.read_html(url,header=0)[5]
-    eff_temps = pd.read_html(eff_url)
-    eff_temps[5].to_csv('eff_temp'+year+'.csv')
-    eff=pd.read_csv('eff_temp'+year+'.csv',header=3)
-    for n in range(1,12):
+    reg = pd.DataFrame()
+    eff = pd.DataFrame()
+    for n in xrange(12):
         url = front + frontb + year + midA+ str(n) + back
         eff_url = front + 'eff'+ frontb + year + midA+ str(n) + back
         reg_temp = pd.read_html(url,header=0)[5]
@@ -26,15 +23,11 @@ def col_stats_scrape(year):#CALL MERGE_PREP TO DO TWO STEPS IN ONE CALL """Usage
         reg=reg.append(reg_temp)
         eff=eff.append(eff_temp)
     reg['year']=2000+float(year)
-    reg['name']=strip(reg.Name)
-    reg=reg.set_index(reg.name)
-
     eff['year']=2000+float(year)
-    eff['name']=strip(eff.Name)
-    eff=eff.set_index(eff.name)
-    eff.to_csv('effdirty'+year+'.csv')
-    df=reg.merge(eff,how='inner',on='name')
+    df=reg.merge(eff,how='inner',on='Name', suffixes=('','_y'))
+    df = df.drop(['Cmp','Team_y','year_y','Min_y','Cmp_y','GP_y'],1)
     print df.shape
+    df.to_csv('col' + year + '.csv')
     return df
 
 def pro_stats(year):
@@ -72,7 +65,6 @@ def pro_stats(year):
     df=reg.merge(eff,how='inner',on='name')
     df.to_csv('pro'+year+'.csv')
     return df
-
 def get_pros():
     df=pro_stats('02')
     df= df.append(pro_stats('03'))
