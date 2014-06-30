@@ -4,7 +4,8 @@ import os
 import os.path
 import html5lib
 import bs4
-def col_stats_scrape(year):#CALL MERGE_PREP TO DO TWO STEPS IN ONE CALL """Usage: col_stats_scrape('2014') Roughly 2 mins per year."""
+def col_stats_scrape(year):
+    #Usage: col_stats_scrape('2014') Roughly 2 mins per year.
     front = 'http://www.draftexpress.com/stats.php?sort=8&q='
     frontb ='&league=NCAA&year=20'
     midA = '&league=NCAA&per=per40pace&qual=prospects&sort2=DESC&pos=all&stage=all&min=10&conference=All&pageno='
@@ -20,8 +21,8 @@ def col_stats_scrape(year):#CALL MERGE_PREP TO DO TWO STEPS IN ONE CALL """Usage
         eff_temp = pd.read_html(eff_url)[5]
         eff_temp.to_csv('eff_temp'+year+'.csv')
         eff_temp = pd.read_csv('eff_temp'+year+'.csv',header=3)
-        reg=reg.append(reg_temp)
-        eff=eff.append(eff_temp)
+        reg = reg.append(reg_temp)
+        eff = eff.append(eff_temp)
     reg['year']=2000+float(year)
     eff['year']=2000+float(year)
     df=reg.merge(eff,how='inner',on='Name', suffixes=('','_y'))
@@ -35,34 +36,23 @@ def pro_stats(year):
     frontb ='&league=NBA&year=20'
     midA = '&per=per40pace&qual=prospects&sort2=DESC&pos=all&stage=&min=10&conference=&pageno='
     back = '&sort=8'
-    url = front + frontb + year + midA+ '0' + back
-    eff_url = front + 'eff' + frontb + year + midA+ '0' + back
-    reg_temps = pd.read_html(url)
-    reg_temp = reg_temps[5]
-    reg_temp.to_csv('reg_temp'+year+'.csv')
-    reg=pd.read_csv('reg_temp'+year+'.csv',header=1)
-    eff_temps = pd.read_html(eff_url)
-    eff_temps[5].to_csv('eff_temp'+year+'.csv')
-    eff=pd.read_csv('eff_temp'+year+'.csv',header=3)
-    n = 1 
-    url = front + frontb + year + midA+ str(n) + back
-    eff_url = front + 'eff'+ frontb + year + midA+ str(n) + back
-    reg_temps = pd.read_html(url)
-    reg_temp = reg_temps[len(reg_temps)-1]
-    reg_temp.to_csv('reg_temp'+year+'.csv')
-    reg_temp=pd.read_csv('reg_temp'+year+'.csv',header=1)
-    eff_temp = pd.read_html(eff_url)[len(reg_temps)-1]
-    eff_temp.to_csv('eff_temp'+year+'.csv')
-    eff_temp=pd.read_csv('eff_temp'+year+'.csv',header=3)
-    reg=reg.append(reg_temp)
-    eff=eff.append(eff_temp)
+    reg = pd.DataFrame()
+    eff = pd.DataFrame()
+    for n in range(0,2):
+        url = front + frontb + year + midA+ str(n) + back
+        eff_url = front + 'eff' + frontb + year + midA+ str(n) + back
+        reg_temps = pd.read_html(url)
+        reg_temp = reg_temps[5]
+        reg_temp.to_csv('reg_temp'+year+'.csv')
+        reg_temp = pd.read_csv('reg_temp'+year+'.csv',header=1)
+        reg = reg.append(reg_temp)
+        eff_temps = pd.read_html(eff_url)
+        eff_temps[5].to_csv('eff_temp'+year+'.csv')
+        eff =  eff.append(pd.read_csv('eff_temp'+year+'.csv',header=3))
     reg['year']=2000+float(year)
-    reg['name']=strip(reg.Name)
-    reg=reg.set_index(reg.name)
     eff['year']=2000+float(year)
-    eff['name']=strip(eff.Name)
-    eff=eff.set_index(eff.name)
-    df=reg.merge(eff,how='inner',on='name')
+    df=reg.merge(eff,how='inner',on='Name', suffixes=('','_y'))
+    df = df.drop(['0','Cmp','Team_y','year_y','Min_y','Cmp_y','GP_y'],1)
     df.to_csv('pro'+year+'.csv')
     return df
 def get_pros():
