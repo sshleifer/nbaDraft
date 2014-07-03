@@ -4,23 +4,36 @@ import os
 import os.path
 import html5lib
 import bs4
-def col_stats_scrape(year):
-    #Usage: col_stats_scrape('2014') Roughly 2 mins per year.
+def main():
+    get_all_cols()
+    col = pd.read_csv('colData.csv',engine='c')
+    col = col.drop(['2','Unnamed: 0'],1)
+    get_all_pros()
+    pro = pd.read_csv('proData.csv')
+    pro = pro.drop('Unnamed: 0',1)
+    rapm = get_all_rapm()
+
+def get_stats(year,level='pro'):
     front = 'http://www.draftexpress.com/stats.php?sort=8&q='
-    frontb ='&league=NCAA&year=20'
-    midA = '&league=NCAA&per=per40pace&qual=prospects&sort2=DESC&pos=all&stage=all&min=10&conference=All&pageno='
+    pages = 2
+    frontb ='&league=NBA&year=20'
+    if level == 'col':
+        frontb ='&league=NCAA&year=20'
+        pages = 13
+    midA = '&per=per40pace&qual=prospects&sort2=DESC&pos=all&stage=all&min=10&conference=All&pageno='
     back = '&sort=8'
     url = front + frontb + year + midA+ '0' + back
-    eff_url = front + 'eff' + frontb + year + midA+ '0' + back
     reg = pd.DataFrame()
     eff = pd.DataFrame()
-    for n in xrange(12):
+    for n in xrange(pages):
         url = front + frontb + year + midA+ str(n) + back
         eff_url = front + 'eff'+ frontb + year + midA+ str(n) + back
-        reg_temp = pd.read_html(url,header=0)[5]
-        eff_temp = pd.read_html(eff_url)[5]
-        eff_temp.to_csv('eff_temp'+year+'.csv')
-        eff_temp = pd.read_csv('eff_temp'+year+'.csv',header=3)
+        reg_temps = pd.read_html(url,header=0)
+        reg_temp = reg_temps[5]
+        eff_temps = pd.read_html(eff_url)
+        eff_temp = eff_temps[5]
+        eff_temp.to_csv('eff_temp.csv')
+        eff_temp = pd.read_csv('eff_temp.csv',header=3)
         reg = reg.append(reg_temp)
         eff = eff.append(eff_temp)
     reg['year']=2000+float(year)
@@ -28,47 +41,41 @@ def col_stats_scrape(year):
     df=reg.merge(eff,how='inner',on='Name', suffixes=('','_y'))
     df = df.drop(['Cmp','Team_y','year_y','Min_y','Cmp_y','GP_y'],1)
     print df.shape
-    df.to_csv('col' + year + '.csv')
+    #df.to_csv(level+ '_stats/' + year + '.csv')
     return df
 
-def pro_stats(year):
-    front = 'http://www.draftexpress.com/stats.php?sort=8&q='
-    frontb ='&league=NBA&year=20'
-    midA = '&per=per40pace&qual=prospects&sort2=DESC&pos=all&stage=&min=10&conference=&pageno='
-    back = '&sort=8'
-    reg = pd.DataFrame()
-    eff = pd.DataFrame()
-    for n in range(0,2):
-        url = front + frontb + year + midA+ str(n) + back
-        eff_url = front + 'eff' + frontb + year + midA+ str(n) + back
-        reg_temps = pd.read_html(url)
-        reg_temp = reg_temps[5]
-        reg_temp.to_csv('reg_temp'+year+'.csv')
-        reg_temp = pd.read_csv('reg_temp'+year+'.csv',header=1)
-        reg = reg.append(reg_temp)
-        eff_temps = pd.read_html(eff_url)
-        eff_temps[5].to_csv('eff_temp'+year+'.csv')
-        eff =  eff.append(pd.read_csv('eff_temp'+year+'.csv',header=3))
-    reg['year']=2000+float(year)
-    eff['year']=2000+float(year)
-    df=reg.merge(eff,how='inner',on='Name', suffixes=('','_y'))
-    df = df.drop(['0','Cmp','Team_y','year_y','Min_y','Cmp_y','GP_y'],1)
-    df.to_csv('pro'+year+'.csv')
+def get_all_cols(): #18minutes
+    df = get_stats('02')
+    df= df.append(get_stats('03','col'))
+    df= df.append(get_stats('04','col'))
+    df= df.append(get_stats('05', 'col'))
+    df= df.append(get_stats('06', 'col'))
+    df= df.append(get_stats('07', 'col'))
+    df= df.append(get_stats('08', 'col'))
+    df= df.append(get_stats('09', 'col'))
+    df= df.append(get_stats('10', 'col'))
+    df= df.append(get_stats('11', 'col'))
+    df= df.append(get_stats('12', 'col'))
+    df= df.append(get_stats('13', 'col'))
+    df= df.append(get_stats('14', 'col'))
+    df.to_csv('colData.csv')
+    print df.shape
     return df
-def get_pros():
-    df=pro_stats('02')
-    df= df.append(pro_stats('03'))
-    df= df.append(pro_stats('04'))
-    df= df.append(pro_stats('05'))
-    df= df.append(pro_stats('06'))
-    df= df.append(pro_stats('07'))
-    df= df.append(pro_stats('08'))
-    df= df.append(pro_stats('09'))
-    df= df.append(pro_stats('10'))
-    df= df.append(pro_stats('11'))
-    df= df.append(pro_stats('12'))
-    df= df.append(pro_stats('13'))
-    df= df.append(pro_stats('14'))
+
+def get_all_pros():
+    df = get_stats('02')
+    df= df.append(get_stats('03'))
+    df= df.append(get_stats('04'))
+    df= df.append(get_stats('05'))
+    df= df.append(get_stats('06'))
+    df= df.append(get_stats('07'))
+    df= df.append(get_stats('08'))
+    df= df.append(get_stats('09'))
+    df= df.append(get_stats('10'))
+    df= df.append(get_stats('11'))
+    df= df.append(get_stats('12'))
+    df= df.append(get_stats('13'))
+    df= df.append(get_stats('14'))
     df.to_csv('proData.csv')
     print df.shape
     return df
@@ -76,101 +83,66 @@ def get_pros():
 def get_rapm(year):
     rapm = pd.read_html('http://stats-for-the-nba.appspot.com/ratings/'+year+'.html',header=0)
     ret = rapm[0]
-    ret['year'] = year
+    ret['year'] = float(year)
     return ret
 
 def get_all_rapm():
-    a = get_rapm('2001')
-    b = get_rapm('2002')
-    c = get_rapm('2003')
-    d = get_rapm('2004')
-    e = get_rapm('2005')
-    f = get_rapm('2006')
-    g = get_rapm('2007')
-    h = get_rapm('2008')
-    i = get_rapm('2009')
-    j = get_rapm('2010')
-    k = get_rapm('2011')
-    l = get_rapm('2012')
-    m = get_rapm('2013')
-    df =  pd.concat([a,b,c,d,e,f,g,h,i,j,k,l,m])
+    df = pd.concat([get_rapm('2001'),get_rapm('2002'), get_rapm('2003')\
+            , get_rapm('2004'), get_rapm('2005'), get_rapm('2006')\
+            , get_rapm('2007'), get_rapm('2008'), get_rapm('2009'), get_rapm('2010'), get_rapm('2011')\
+            , get_rapm('2012'),get_rapm('2013')])
     df = df.drop('Unnamed: 5' , 1)
     df['name']=df.Name
     df = df.drop('Name',1)
     df = df.rename(columns={'Defense per 100':'def100', 'Off+Def per 200': 'tot200',\
             'Offense per 100':'off100'})
-    return df
+    rapm = df
+    rapm.to_csv('allRapm.csv')
+    rapm = rapm.sort('tot200', ascending=True)
+    rapm = rapm.drop_duplicates('name',take_last=True)
+    rapm.to_csv('bestRapm.csv')
+    return rapm
 
-def get_cols():
-    df=col_scrape('02')
-    df= df.append(col_scrape('03'))
-    df= df.append(col_scrape('04'))
-    df= df.append(col_scrape('05'))
-    df= df.append(col_scrape('06'))
-    df= df.append(col_scrape('07'))
-    df= df.append(col_scrape('08'))
-    df= df.append(col_scrape('09'))
-    df= df.append(col_scrape('10'))
-    df= df.append(col_scrape('11'))
-    df= df.append(col_scrape('12'))
-    df= df.append(col_scrape('13'))
-    df= df.append(col_scrape('14'))
-    df.to_csv('colData.csv')
-    print df.shape
-    return df
 
-def stripquote(text):
-	if (text[-1] == '"'):
-		return text[0:-1]
-	else:
-		return text
-
-def heightfix(df,flen):
-	df.new=df.str.split(' ')
-	df.feet=df.new.str[0]
-	df.feet=df.feet.str[flen].astype('float')
-	df.inches=df.new.str[1]
-	df.inches=df.inches.str[0:-1]
-	df.inches=df.inches.astype('float')
-	df.old=df.new.replace('"','',regex=True)
-	df.final= (12*df.feet+df.inches).astype('float')
-	return df.final
+def height_fix(df,flen):
+    df.new=df.str.split(' ')
+    df.feet=df.new.str[0]
+    df.feet=df.feet.str[flen].astype('float')
+    df.inches=df.new.str[1]
+    df.inches=df.inches.str[0:-1]
+    df.inches=df.inches.astype('float')
+    df.old=df.new.replace('"','',regex=True)
+    df.final= (12*df.feet+df.inches).astype('float')
+    return df.final
 
 def meas():
-	url='http://www.draftexpress.com/nba-pre-draft-measurements/?page=&year=All&source=All&sort2=ASC&draft=0&pos=0&sort='
-	df= pd.read_csv('dirtyMeas.csv')
-	df['name']=df['Name'].str.split(' -').str.get(0)
-	df['year']=df['Name'].str.split('-').str.get(1)
-	df=df.drop_duplicates(cols='name',take_last=True)
-	df=df[0:2589]
-	df=df.drop('Name',1)
-	df=df.drop('Rank',1)
-	#FIX HEIGHTS
-	df['heightshoes']=heightfix(df['Height w/shoes'],0)
-	df=df.drop('Height w/shoes',1)
-	df['heightbare']=heightfix(df['Height w/o Shoes'],0)
-	df=df.drop('Height w/o Shoes',1)
-	df['wingspan']=heightfix(df['Wingspan'],0)
-	df=df.drop('Wingspan',1)
-	df['reach']=heightfix(df['Reach'],0)
-	#TODO: FIX standvert reach and maxvertreach
-	df['standvertreach']=heightfix(df['No Step Vert Reach'],0)
-	df['maxvertreach']=heightfix(df['Max Vert Reach'],0)
-	df = df.set_index(df.name)
-	df=df.sort()
-	df.to_csv('measurements.csv')
-	return df
+    url = 'http://www.draftexpress.com/nba-pre-draft-measurements/?page=&year=All&source=All&sort2=ASC&draft=0&pos=0&sort='
+    dfs = pd.read_html(url,header = 0)
+    df = dfs[5]
+    df['name']=df['Name'].str.split(' -').str.get(0)
+    df['year']=df['Name'].str.split('-').str.get(1)
+    df = df.drop_duplicates(cols='name',take_last=True)
+    df = df[:2589]#TODO:WHY
+    #FIX HEIGHTS
+    df['heightshoes'] = height_fix(df['Height w/shoes'],0)
+    df['heightbare'] = height_fix(df['Height w/o Shoes'],0)
+    df['wingspan'] = height_fix(df['Wingspan'],0)
+    df['reach'] = height_fix(df['Reach'],0)
+    #TODO: FIX standvert reach and maxvertreach
+    df['standvertreach'] = height_fix(df['No Step Vert Reach'],0)
+    df['maxvertreach'] = height_fix(df['Max Vert Reach'],0)
+    df = df.drop(['Name','Rank','Height w/shoes', 'Height w/o shoes','Wingspan', 'No Step Very Reach', 'Max Vert Reach'],1)
+    df = df.sort()
+    df.to_csv('measurements.csv')
+    return df
 
 def col_merge(year):
-	pd.options.display.max_columns = 200
-	meas = pd.read_csv('measurements.csv')
-	col= col_scrape(year)
-	df=pd.merge(col,meas,on='name',how='left')
-	df=df.drop('Cmp',1)
-	df=df.drop('Name',1)
-	df=df.drop_duplicates(cols='name',take_last=True)
-	df.to_csv('mergedCol'+year+'.csv')
-
-	return df
-
-
+    pd.options.display.max_columns = 200
+    meas = pd.read_csv('measurements.csv')
+    col= get_stats(year)
+    df=pd.merge(col,meas,on='name',how='left')
+    df=df.drop('Cmp',1)
+    df=df.drop('Name',1)
+    df=df.drop_duplicates(cols='name',take_last=True)
+    df.to_csv('mergedCol'+year+'.csv')
+    return df
