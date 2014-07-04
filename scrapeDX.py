@@ -123,7 +123,9 @@ def meas():
     df['year']=df['Name'].str.split('-').str.get(1)
     df = df.drop_duplicates(cols='name',take_last=True)
     df = df[:2589]#TODO:WHY
+    return df
     #FIX HEIGHTS
+def clean_meas(df):
     df['heightshoes'] = height_fix(df['Height w/shoes'],0)
     df['heightbare'] = height_fix(df['Height w/o Shoes'],0)
     df['wingspan'] = height_fix(df['Wingspan'],0)
@@ -131,9 +133,9 @@ def meas():
     #TODO: FIX standvert reach and maxvertreach
     df['standvertreach'] = height_fix(df['No Step Vert Reach'],0)
     df['maxvertreach'] = height_fix(df['Max Vert Reach'],0)
-    df = df.drop(['Name','Rank','Height w/shoes', 'Height w/o shoes','Wingspan', 'No Step Very Reach', 'Max Vert Reach'],1)
+    df = df.drop(['Name','Rank','Height w/shoes', 'Height w/o Shoes','Wingspan', 'No Step Vert Reach', 'Max Vert Reach'],1)
     df = df.sort()
-    df.to_csv('measurements.csv')
+    df.to_csv('measurements.csv', encoding = 'utf-8')
     return df
 
 def col_merge(year):
