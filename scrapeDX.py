@@ -4,6 +4,7 @@ import os
 import os.path
 import html5lib
 import bs4
+
 def main():
     get_all_cols()
     col = pd.read_csv('colData.csv',engine='c')
@@ -103,7 +104,6 @@ def get_all_rapm():
     rapm.to_csv('bestRapm.csv')
     return rapm
 
-
 def height_fix(df,flen):
     df.new=df.str.split(' ')
     df.feet=df.new.str[0]
@@ -115,6 +115,10 @@ def height_fix(df,flen):
     df.final= (12*df.feet+df.inches).astype('float')
     return df.final
 
+def meas_full():
+    df = meas()
+    return clean_meas(df)
+
 def meas():
     url = 'http://www.draftexpress.com/nba-pre-draft-measurements/?page=&year=All&source=All&sort2=ASC&draft=0&pos=0&sort='
     dfs = pd.read_html(url,header = 0)
@@ -124,7 +128,7 @@ def meas():
     df = df.drop_duplicates(cols='name',take_last=True)
     df = df[:2589]#TODO:WHY
     return df
-    #FIX HEIGHTS
+
 def clean_meas(df):
     df['heightshoes'] = height_fix(df['Height w/shoes'],0)
     df['heightbare'] = height_fix(df['Height w/o Shoes'],0)
