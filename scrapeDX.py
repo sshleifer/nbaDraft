@@ -4,15 +4,49 @@ import os
 import os.path
 import html5lib
 import bs4
+import numpy as np
+import statsmodels.api as sm
 
 def main():
-    get_all_cols()
+    #get_all_cols()
     col = pd.read_csv('colData.csv',engine='c')
     col = col.drop(['2','Unnamed: 0'],1)
-    get_all_pros()
+    #get_all_pros()
     pro = pd.read_csv('proData.csv')
     pro = pro.drop('Unnamed: 0',1)
     rapm = get_all_rapm()
+    bestrapm = pd.read_csv('bestRapm.csv')
+    #perform some scaling operations before filterage?
+    col_pro = col.merge(bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
+
+def big_regression(df): #TODO: More cleaning
+    df = df._get_numeric_data()
+#    df = dummy_out(df)
+    df = df.dropna()
+    col_list = []
+    for col in df.columns:
+        if col != 'off100':
+            col_list.append(col)
+        try:
+            np.fabs(df[col])
+        except:
+            print col
+    X = df[col_list]
+    Y = df['off100']
+    X = sm.add_constant(X)
+    #results = sm.RLM(Y,X, M=sm.robust.norms.HuberT())
+    results = sm.OLS(Y,X)
+    results = results.fit()
+    print results.summary()
+    return results
+
+def dummy_out(df):
+    for col in df.columns:
+        df[col] = df[col].fillna(-1)
+        df[col+'_NA'] = (df[col] == -1)
+    return df
+
+
 
 def get_stats(year,level='pro'):
     front = 'http://www.draftexpress.com/stats.php?sort=8&q='
@@ -45,7 +79,7 @@ def get_stats(year,level='pro'):
     #df.to_csv(level+ '_stats/' + year + '.csv')
     return df
 
-def get_all_cols(): #18minutes
+def get_all_cols(): #18minutes Produces colData.csv
     df = get_stats('02')
     df= df.append(get_stats('03','col'))
     df= df.append(get_stats('04','col'))
@@ -63,7 +97,7 @@ def get_all_cols(): #18minutes
     print df.shape
     return df
 
-def get_all_pros():
+def get_all_pros():#Produces proData.csv
     df = get_stats('02')
     df= df.append(get_stats('03'))
     df= df.append(get_stats('04'))
@@ -87,7 +121,7 @@ def get_rapm(year):
     ret['year'] = float(year)
     return ret
 
-def get_all_rapm():
+def get_all_rapm(): #Produced bestRapm.csv
     df = pd.concat([get_rapm('2001'),get_rapm('2002'), get_rapm('2003')\
             , get_rapm('2004'), get_rapm('2005'), get_rapm('2006')\
             , get_rapm('2007'), get_rapm('2008'), get_rapm('2009'), get_rapm('2010'), get_rapm('2011')\
@@ -139,7 +173,7 @@ def clean_meas(df):
     df['maxvertreach'] = height_fix(df['Max Vert Reach'],0)
     df = df.drop(['Name','Rank','Height w/shoes', 'Height w/o Shoes','Wingspan', 'No Step Vert Reach', 'Max Vert Reach'],1)
     df = df.sort()
-    df.to_csv('measurements.csv', encoding = 'utf-8')
+    df.to_csv('measuremeets.csv', encoding = 'utf-8')
     return df
 
 def col_merge(year):
