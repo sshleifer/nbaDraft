@@ -6,46 +6,58 @@ import html5lib
 import bs4
 import numpy as np
 import statsmodels.api as sm
+from itertools import combinations
 
 def main():
     #get_all_cols()
     col = pd.read_csv('colData.csv',engine='c')
-    col = col.drop(['2','Unnamed: 0'],1)
     #get_all_pros()
     pro = pd.read_csv('proData.csv')
     pro = pro.drop('Unnamed: 0',1)
-    rapm = get_all_rapm()
+    #rapm = get_all_rapm()
     bestrapm = pd.read_csv('bestRapm.csv')
-    #perform some scaling operations before filterage?
-    col_pro = col.merge(bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
-
-def big_regression(df): #TODO: More cleaning
-    df = df._get_numeric_data()
-#    df = dummy_out(df)
-    df = df.dropna()
-    col_list = []
-    for col in df.columns:
-        if col != 'off100':
-            col_list.append(col)
-        try:
-            np.fabs(df[col])
-        except:
-            print col
-    X = df[col_list]
-    Y = df['off100']
-    X = sm.add_constant(X)
+    colpro = col.merge(bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
+    regress(colpro[lh_list()],colpro['off100'])    
+    genetic_loop(colpro[lh_list()],colpro['off100'])
+    return colpro 
     #results = sm.RLM(Y,X, M=sm.robust.norms.HuberT())
+def genetic_loop(ivs, colpro):
+    best_yet = 100000
+    temp = (1,1)
+    for i, combo in enumerate(combinations(ivs,10)):
+        result = regress(colpro[list(combo)], colpro['off100'])
+        if result.aic < best_yet:
+            temp = (result, combo)
+    return temp
+def drop_unnamed(df):
+    to_drop = []
+    for col in df.columns:
+        if 'Unnamed:' in col:
+            to_drop.append(col)
+    return df.drop(to_drop,1)
+
+def regress(X, Y):
     results = sm.OLS(Y,X)
     results = results.fit()
-    print results.summary()
     return results
 
-def dummy_out(df):
-    for col in df.columns:
-        df[col] = df[col].fillna(-1)
-        df[col+'_NA'] = (df[col] == -1)
-    return df
+def lh_list(colpro): #TODO: CACHE
+    df = drop_unnamed(pd.read_csv('colData.csv'))
+    cp = dummy_out(drop_unnamed(colpro))
+    df = dummy_out(df)
+    df = drop_unnamed(df)
+    iv_list = []
+    for col in df._get_numeric_data().columns:
+        if col in cp._get_numeric_data():
+            iv_list.append(col)
+    return iv_list
 
+def dummy_out(df):
+    for col in df._get_numeric_data().columns:
+            if df[col].mean() != df[col].fillna(-1).mean():
+                df[col] = df[col].fillna(-1)
+                df[col+'_NA'] = (df[col] == -1)
+    return df
 
 
 def get_stats(year,level='pro'):
