@@ -9,27 +9,66 @@ import statsmodels.api as sm
 from itertools import combinations
 #sm.RLM(Y,X, M=sm.robust.norms.HuberT())
 
-def main():
+#def main():
     #get_all_cols()
-    col = pd.read_csv('colData.csv',engine='c')
     #get_all_pros()
-    pro = pd.read_csv('proData.csv')
-    pro = pro.drop('Unnamed: 0',1)
+    #pro = pd.read_csv('proData.csv')
     #rapm = get_all_rapm()
+    
+    
+def full_reg(colpro):
+    reg = regress(colpro[lh_vars()],colpro['off100'])    
+    #genetic_loop(colpro[lh_vars()],colpro['off100'])
+    return reg
+def de_dup(df):
+    df = df.sort('year')
+    df = df.drop_duplicates('Name',1)
+    return df
+
+def make_colpro():
+    col = pd.read_csv('colData.csv',engine='c')
+    col = col.sort('year')
+    col = col.drop_duplicates('Name',1)
+    meas = read_meas()
+    col_meas = pd.merge(col, meas, left_on ='Name', right_on='name', suffixes=('','_m'))
     bestrapm = pd.read_csv('bestRapm.csv')
-    colpro = pd.merge(col, bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
-    regress(colpro[lh_list()],colpro['off100'])    
-    #genetic_loop(colpro[lh_list()],colpro['off100'])
+    colpro = pd.merge(col_meas, bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
     return dummy_out(colpro) 
 
-def genetic_loop(ivs, colpro):
+def year_fix(df):
+    df['year'] = df['year'].str.replace(' ','')
+    years = np.array(df.year)
+    floats = []
+    for x in years:
+        try:
+            floats.append(float(x))
+        except:
+            floats.append(float(-1))
+    df['year'] = floats
+    return df
+
+def read_meas():
+    read_in = pd.read_csv('measurements.csv')
+    df = year_fix(read_in)
+    df = dummy_out(df)
+    df = df[df.year.astype('float') > 2000]
+    return df
+
+def meas_full():
+    df = meas()
+    return clean_meas(df)
+
+def genetic_loop(colpro, num_lh):
+    ivs = lh_vars(colpro)
     best_yet = 100000
-    temp = (1,1)
-    for i, combo in enumerate(combinations(ivs,10)):
+    best_vars = []
+    for i, combo in enumerate(combinations(ivs,num_lh)):
         result = regress(colpro[list(combo)], colpro['off100'])
-        if result.aic < best_yet:
-            temp = (result, combo)
-    return temp
+        if result.rsquared_adjusted < best_yet:
+            best_yet = results.aic
+            best_vars = combo
+            print i
+    return best_yet #Can return best_vars if useful
 
 def drop_unnamed(df):
     to_drop = []
@@ -43,7 +82,7 @@ def regress(X, Y):
     results = results.fit()
     return results
 
-def lh_list(colpro): #TODO: CACHE
+def lh_vars(colpro): #TODO: CACHE
     df = drop_unnamed(pd.read_csv('colData.csv'))
     cp = dummy_out(drop_unnamed(colpro))
     df = dummy_out(df)
@@ -60,7 +99,6 @@ def dummy_out(df):
                 df[col] = df[col].fillna(-1)
                 df[col+'_NA'] = (df[col] == -1)
     return df
-
 
 def get_stats(year,level='pro'):
     front = 'http://www.draftexpress.com/stats.php?sort=8&q='
@@ -163,11 +201,8 @@ def height_fix(df,flen):
     df.final= (12*df.feet+df.inches).astype('float')
     return df.final
 
-def meas_full():
-    df = meas()
-    return clean_meas(df)
 
-def meas():
+def get_meas():
     url = 'http://www.draftexpress.com/nba-pre-draft-measurements/?page=&year=All&source=All&sort2=ASC&draft=0&pos=0&sort='
     dfs = pd.read_html(url,header = 0)
     df = dfs[5]
