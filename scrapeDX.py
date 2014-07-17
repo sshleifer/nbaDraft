@@ -7,6 +7,7 @@ import bs4
 import numpy as np
 import statsmodels.api as sm
 from itertools import combinations
+#sm.RLM(Y,X, M=sm.robust.norms.HuberT())
 
 def main():
     #get_all_cols()
@@ -16,11 +17,11 @@ def main():
     pro = pro.drop('Unnamed: 0',1)
     #rapm = get_all_rapm()
     bestrapm = pd.read_csv('bestRapm.csv')
-    colpro = col.merge(bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
+    colpro = pd.merge(col, bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
     regress(colpro[lh_list()],colpro['off100'])    
-    genetic_loop(colpro[lh_list()],colpro['off100'])
-    return colpro 
-    #results = sm.RLM(Y,X, M=sm.robust.norms.HuberT())
+    #genetic_loop(colpro[lh_list()],colpro['off100'])
+    return dummy_out(colpro) 
+
 def genetic_loop(ivs, colpro):
     best_yet = 100000
     temp = (1,1)
@@ -29,6 +30,7 @@ def genetic_loop(ivs, colpro):
         if result.aic < best_yet:
             temp = (result, combo)
     return temp
+
 def drop_unnamed(df):
     to_drop = []
     for col in df.columns:
