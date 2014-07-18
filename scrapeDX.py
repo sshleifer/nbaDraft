@@ -7,19 +7,19 @@ import bs4
 import numpy as np
 import statsmodels.api as sm
 from itertools import combinations
-#sm.RLM(Y,X, M=sm.robust.norms.HuberT())
 
-#def main():
-    #get_all_cols()
-    #get_all_pros()
-    #pro = pd.read_csv('proData.csv')
-    #rapm = get_all_rapm()
+from sklearn_pandas import DataFrameMapper, cross_val_score
+import pandas as pd
+import numpy as np
+from scrapeDX import make_colpro
+from sklearn import *
     
     
 def full_reg(colpro):
     reg = regress(colpro[lh_vars()],colpro['off100'])    
     #genetic_loop(colpro[lh_vars()],colpro['off100'])
     return reg
+
 def de_dup(df):
     df = df.sort('year')
     df = df.drop_duplicates('Name',1)
@@ -58,18 +58,39 @@ def meas_full():
     df = meas()
     return clean_meas(df)
 
-def genetic_loop(colpro, num_lh):
+def genetic_loop(colpro, num_lh, stop=1000000000000):
     ivs = lh_vars(colpro)
-    best_yet = 100000
-    best_vars = []
+    rh = colpro['off100']
+    #reg = regress(colpro[ivs], rh)
+    #print reg.rsquared_adj
+    #best_result = reg
     for i, combo in enumerate(combinations(ivs,num_lh)):
-        result = regress(colpro[list(combo)], colpro['off100'])
-        if result.rsquared_adjusted < best_yet:
-            best_yet = results.aic
-            best_vars = combo
-            print i
-    return best_yet #Can return best_vars if useful
+        lh = list(combo)
+        result = regress(colpro[lh], rh)
+        if i == 0:
+            best_result = result
+            continue
+        if result.rsquared_adj > best_result.rsquared_adj:
+            best_result = result
+        if i == stop:
+            break
+    return result #Can return best_vars if useful
 
+def best_num_vars(colpro):
+    results = {}
+    print len (colpro.columns)
+    for i in range(1, len(colpro.columns)):
+        result = genetic_loop(colpro, i, 5000)
+        results.update({len(result.pvalues): result.rsquared_adj})
+        print i, results[i]
+    return results
+
+def add_dummies(combos):
+    return_cols = combos
+    for x in combos:
+        return_cols.append(x + '_NA')
+    return return_cols
+     
 def drop_unnamed(df):
     to_drop = []
     for col in df.columns:
@@ -201,7 +222,6 @@ def height_fix(df,flen):
     df.final= (12*df.feet+df.inches).astype('float')
     return df.final
 
-
 def get_meas():
     url = 'http://www.draftexpress.com/nba-pre-draft-measurements/?page=&year=All&source=All&sort2=ASC&draft=0&pos=0&sort='
     dfs = pd.read_html(url,header = 0)
@@ -225,13 +245,9 @@ def clean_meas(df):
     df.to_csv('measuremeets.csv', encoding = 'utf-8')
     return df
 
-def col_merge(year):
-    pd.options.display.max_columns = 200
-    meas = pd.read_csv('measurements.csv')
-    col= get_stats(year)
-    df=pd.merge(col,meas,on='name',how='left')
-    df=df.drop('Cmp',1)
-    df=df.drop('Name',1)
-    df=df.drop_duplicates(cols='name',take_last=True)
-    df.to_csv('mergedCol'+year+'.csv')
-    return df
+#def get_data():
+    #get_all_cols()
+    #get_all_pros()
+    #rapm = get_all_rapm()
+    #sm.RLM(Y,X, M=sm.robust.norms.HuberT())
+
