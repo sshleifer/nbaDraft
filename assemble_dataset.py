@@ -2,10 +2,11 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 
+
 def lh_vars(colpro): #TODO: CACHE
     df = drop_unnamed(pd.read_csv('colmeas.csv'))
-    cp = dummy_out(drop_unnamed(colpro))
-    df = dummy_out(df)
+    #df = dummy_out(df)
+    cp = drop_unnamed(colpro)
     df = drop_unnamed(df)
     iv_list = []
     for col in df._get_numeric_data().columns:
@@ -42,7 +43,8 @@ def make_colpro():
     col_meas.to_csv('colmeas.csv')
     bestrapm = pd.read_csv('bestRapm.csv')
     colpro = pd.merge(col_meas, bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
-    return dummy_out(colpro)
+    return colpro
+    #return dummy_out(colpro)
 
 def de_dup(df):
     df = df.sort('year')
