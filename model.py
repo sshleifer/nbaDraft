@@ -1,3 +1,4 @@
+from scipy.stats import pearsonr
 import pandas as pd
 import requests
 import numpy as np
@@ -5,7 +6,7 @@ import statsmodels.api as sm
 from itertools import combinations
 from sklearn_pandas import DataFrameMapper, cross_val_score
 from sklearn import preprocessing
-from assemble_dataset import make_colpro,lh_vars
+from assemble_dataset import make_colpro,lh_vars, dummy_out
 import sklearn
 
 def df_mapper(lh):
@@ -17,21 +18,31 @@ def df_mapper(lh):
     mapper = DataFrameMapper(to_map)
     return mapper
 
-def piping(colpro, mapper):
-    pipe = sklearn.pipeline.Pipeline([('featurize', mapper), ('lm', sklearn.linear_model.LinearRegression())])
-    x = cross_val_score(pipe,colpro, colpro.off100, 'r2',verbose=2)
-    return np.mean(x)
+def shuffle(df, n=1, axis=0):
+    df = df.copy()
+    for _ in range(n):
+        df.apply(np.random.shuffle, axis=axis)
+    return df
 
-def genetic_loop(colpro, num_lh, stop=1000000000000):
+def training_regression(colpro,num_folds=2):
+    colpro = shuffle(colpro)
+    obs = len(colpro)
+    x_train =  colpro[:obs/num_folds]
+    x_test = colpro[obs/num_folds:]
+    reg,lh = prune(x_test)
+    y_hat = list(reg.predict(x_test[lh]))
+    #print y_hat
+    y_act = pd.DataFrame(x_test['tot200'])
+    y_act['y_hat'] = [n for n in y_hat]
+    print pearsonr(y_act.y_hat, y_act.tot200)
+    return reg, y_act
+
+def genetic_loop(colpro, num_lh, dv='off100', stop=1000000000000):
     ivs = lh_vars(colpro)
-    rh = colpro['off100']
-    #reg = regress(colpro[ivs], rh)
-    #print reg.rsquared_adj
-    #best_result = reg
+    rh = colpro[dv]
     for i, combo in enumerate(combinations(ivs,num_lh)):
         lh = list(combo)
-        mapper = df_mapper(lh)
-        result = piping(colpro, mapper)
+        result = regress(colpro[lh], rh)
         if i == 0:
             best_result = result
         elif result.rsquared_adj > best_result.rsquared_adj:
@@ -40,16 +51,22 @@ def genetic_loop(colpro, num_lh, stop=1000000000000):
             break
     return result #Can return best_vars if useful
 
+def prune(colpro, cutoff=.3,dv='tot200',iters=5):
+    reg = full_reg(dummy_out(colpro), dv)
+    while iters > 0:
+        p = pd.DataFrame(reg.pvalues,columns=['pvals'])
+        lh_new =  list(p[p.pvals <= cutoff].index)
+        reg = regress(colpro[lh_new],colpro[dv])
+        iters -= 1
+    return reg, lh_new
 
 def regress(X, Y): # FASTER THAN PIPING, CHANGE TO RESULT>rsquared_adj
     reg = sm.OLS(Y,X)
     return reg.fit()
 
-def full_reg(colpro):
-    reg = regress(colpro[lh_vars()],colpro['off100'])
-    #genetic_loop(colpro[lh_vars()],colpro['off100'])
+def full_reg(colpro, dv='off100'):
+    reg = regress(colpro[lh_vars(colpro)],colpro[dv])
     return reg
-
 
 def best_num_vars(colpro):
     results = {}
