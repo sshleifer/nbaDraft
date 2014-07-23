@@ -49,7 +49,7 @@ def df_mapper(lh, df):
 def shuffle(df):
     return df.loc[np.random.choice(df.index, len(df), replace=False)] 
 
-def four_way_split (df, dv='tot200',test_size=.5):
+def four_way_split (df, dv=['off100','def100','tot200'],test_size=.5):
     df = shuffle(df) 
     xtrain, xtest, ytrain, ytest = cross_validation.train_test_split(
             df[lh_vars(df)],
@@ -70,23 +70,29 @@ def two_way_split(df, test_size=.5):
     test = df.drop(rows)
     return train, test
 
-def rfr_regression(full=clean_train, dv='tot200', test_size=.5):
+def rfr_regression(full=clean_train, dv='tot200', test_size=.7, 
+                   add_rfr=True, add_off=True, add_def=True):
     df = dummy_out(full.copy())
-    rfr = RandomForestRegressor()
-    X = df[lh_vars(df)]
-    Y = df.tot200 
-    rfr.fit(np.array(X),np.array(Y.values))
-    X['forest_pred'] = rfr.predict(np.array(X.values))
-    
-    off_reg= skl_reg(X, df.off100)
-    X['off_pred'] = off_reg.predict(X)
-    
-    def_reg = skl_reg(X, df.def100)
-    X['def_pred'] = def_reg.predict(X)
-    
-    reg = skl_reg(X, Y)
-    print cross_val_score(reg, X, Y,scoring='r2')
-    
+    xtr, xt, ytr, yt = four_way_split(df, test_size=test_size)
+    if add_rfr: 
+        rfr = RandomForestRegressor()
+        rfr.fit(np.array(xtr),np.array(ytr[dv].values))
+        xt['forest_pred'] =rfr.predict(np.array(xt.values)) 
+        xtr['forest_pred'] = rfr.predict(np.array(xtr.values))
+    if add_off:
+        off_reg= skl_reg(xtr,ytr['off100'])
+        xt['off_pred'] =off_reg.predict(np.array(xt.values)) 
+        xtr['off_pred'] = off_reg.predict(xtr)
+    if add_def:
+        def_reg = skl_reg(xtr,ytr['def100'])
+        xt['def_pred'] = def_reg.predict(np.array(xt.values)) 
+        xtr['def_pred'] = def_reg.predict(xtr)
+#    reg = skl_reg(xtr, ytr['tot200'])
+    reg = skl_reg(xtr, ytr[dv])
+    return reg.score(np.array(xtr), np.array(ytr[dv]))
+    print np.mean(cross_val_score(reg, xt, yt, scoring='r2'))
+    return regress(xtr, ytr[dv])
+
 def run_prune(df,dv='tot200',test_size=.5):
     df = dummy_out(df)
     test, train = two_way_split(df, test_size=test_size) 
