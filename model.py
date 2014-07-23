@@ -1,5 +1,7 @@
 from sklearn import cross_validation
+from sklearn.cross_validation import cross_val_score
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 import random
 from scipy.stats import pearsonr
 import pandas as pd
@@ -16,12 +18,15 @@ clean_train = pd.read_csv('train.csv')
 def rand_forest(df=clean_train):
     df = dummy_out(df)
     rfr = RandomForestRegressor()
+    print cross_val_score
     xtr, xt, ytr, yt = four_way_split(df)
-    rfr.fit(np.array(xtr),np.array(ytr))
+    rfr.fit(np.array(xtr.values), np.array(ytr.values))
+    return rfr, score_forest(rfr, xt, yt)
+
+def score_forest(rfr,xt,yt):
     pred = rfr.predict(xt)
     y= make_scoreable(yt,pred)
-    print fit_score(y)
-    return rfr
+    return fit_score(y)
 
 def normalize(x):
     m = x.mean()
@@ -65,6 +70,23 @@ def two_way_split(df, test_size=.5):
     test = df.drop(rows)
     return train, test
 
+def rfr_regression(full=clean_train, dv='tot200', test_size=.5):
+    df = dummy_out(full.copy())
+    rfr = RandomForestRegressor()
+    X = df[lh_vars(df)]
+    Y = df.tot200 
+    rfr.fit(np.array(X),np.array(Y.values))
+    X['forest_pred'] = rfr.predict(np.array(X.values))
+    
+    off_reg= skl_reg(X, df.off100)
+    X['off_pred'] = off_reg.predict(X)
+    
+    def_reg = skl_reg(X, df.def100)
+    X['def_pred'] = def_reg.predict(X)
+    
+    reg = skl_reg(X, Y)
+    print cross_val_score(reg, X, Y,scoring='r2')
+    
 def run_prune(df,dv='tot200',test_size=.5):
     df = dummy_out(df)
     test, train = two_way_split(df, test_size=test_size) 
@@ -73,7 +95,7 @@ def run_prune(df,dv='tot200',test_size=.5):
     y = pd.DataFrame(test.tot200)
     y = make_scoreable(y,yhat)
     print fit_score(y)
-    return reg 
+    return reg, lh
 
 def make_scoreable(df, pred):
     df['yhat'] = [x for x in pred]
@@ -96,7 +118,7 @@ def genetic_loop(df, num_lh, dv='off100', stop=1000000000000):
             break
     return result #Can return best_vars if useful
 
-def prune(df=df, cutoff=.3,dv='tot200',iters=5):
+def prune(df=clean_train, cutoff=.3,dv='tot200',iters=5):
     reg = full_reg(df, dv)
     while iters > 0:
         p = pd.DataFrame(reg.pvalues,columns=['pvals'])
@@ -109,6 +131,11 @@ def prune(df=df, cutoff=.3,dv='tot200',iters=5):
 def regress(X, Y): # FASTER THAN PIPING, CHANGE TO RESULT>rsquared_adj
     reg = sm.OLS(Y,X)
     return reg.fit()
+
+def skl_reg(X,Y):
+    reg = LinearRegression()
+    reg.fit(X,Y)
+    return reg
 
 def full_reg(df, dv='off100'):
     reg = regress(df[lh_vars(df)],df[dv])
