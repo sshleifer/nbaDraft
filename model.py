@@ -9,8 +9,10 @@ from itertools import combinations
 from assemble_dataset import set_up,lh_vars, dummy_out
 import sklearn
 
+#df = set_up()
+df = pd.read_csv('train.csv')
 
-df = set_up()
+
 
 def normalize(x):
     m = x.mean()
