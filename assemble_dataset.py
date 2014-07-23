@@ -4,6 +4,7 @@ import statsmodels.api as sm
 import random
 
 def set_up():
+    assert False #DONT USE THIS: READ TRAIN.csv
     colpro = make_colpro()
     train, test =two_way_split(colpro, test_size=.1)
     test.to_csv('testfile.csv')
