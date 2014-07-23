@@ -37,7 +37,7 @@ def get_stats(year,level='pro'):
     #df.to_csv(level+ '_stats/' + year + '.csv')
     return df
 
-def get_all_cols(): #18minutes Produces colData.csv
+def get_all_cols(): #Produces colData.csv in 18 minutes
     df = get_stats('02')
     df= df.append(get_stats('03','col'))
     df= df.append(get_stats('04','col'))
