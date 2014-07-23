@@ -30,10 +30,19 @@ def lh_vars(colpro): #TODO: CACHE
     return iv_list
 
 def dummy_out(df):
+    df = drop_unnamed(df.copy())
+    df = year_dummies(df)
     for col in df._get_numeric_data().columns:
-            if df[col].mean() != df[col].fillna(-1).mean():
+            fillna = df[col].fillna(-1)
+            if df[col].mean() != fillna.mean():
                 df[col] = df[col].fillna(-1)
                 df[col+'_NA'] = (df[col] == -1)
+    return df
+
+def year_dummies(df):
+    for year in df.year.unique():
+        df['dum_' + str(year)] = (df.year == year)
+    df = df.drop('year',1)
     return df
 
 def drop_unnamed(df):
