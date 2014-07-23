@@ -1,7 +1,21 @@
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+import random
 
+def set_up():
+    colpro = make_colpro()
+    train, test =two_way_split(colpro, test_size=.1)
+    test.to_csv('testfile.csv')
+    return train
+
+def two_way_split(df, test_size=.5):
+    df = df.loc[np.random.choice(df.index, len(df), replace=False)]
+    train_size = np.round(len(df) * (1 - test_size))
+    rows = random.sample(df.index, int(train_size))
+    train = df.ix[rows]
+    test = df.drop(rows)
+    return train, test
 
 def lh_vars(colpro): #TODO: CACHE
     df = drop_unnamed(pd.read_csv('colmeas.csv'))
