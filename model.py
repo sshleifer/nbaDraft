@@ -1,4 +1,5 @@
 from sklearn import cross_validation
+from sklearn.ensemble import RandomForestRegressor
 import random
 from scipy.stats import pearsonr
 import pandas as pd
@@ -10,9 +11,17 @@ from assemble_dataset import set_up,lh_vars, dummy_out
 import sklearn
 
 #df = set_up()
-df = pd.read_csv('train.csv')
+clean_train = pd.read_csv('train.csv')
 
-
+def rand_forest(df=clean_train):
+    df = dummy_out(df)
+    rfr = RandomForestRegressor()
+    xtr, xt, ytr, yt = four_way_split(df)
+    rfr.fit(np.array(xtr),np.array(ytr))
+    pred = rfr.predict(xt)
+    y= make_scoreable(yt,pred)
+    print fit_score(y)
+    return rfr
 
 def normalize(x):
     m = x.mean()
@@ -24,7 +33,7 @@ def norm_df(df):
         df[col] = normalize(df[col])
     return df
 
-def df_mapper(lh, df=df):
+def df_mapper(lh, df):
     to_map = []
     for col in lh:
         df[col] = df[col].astype('float')
@@ -57,13 +66,18 @@ def two_way_split(df, test_size=.5):
     return train, test
 
 def run_prune(df,dv='tot200',test_size=.5):
-    test, train = two_way_split(df,dv=dv, test_size=test_size) 
+    df = dummy_out(df)
+    test, train = two_way_split(df, test_size=test_size) 
     reg, lh = prune(test)
     yhat = list(reg.predict(test[lh]))
     y = pd.DataFrame(test.tot200)
-    y['yhat'] = [x for x in yhat]
+    y = make_scoreable(y,yhat)
     print fit_score(y)
     return reg 
+
+def make_scoreable(df, pred):
+    df['yhat'] = [x for x in pred]
+    return df
 
 def fit_score(y):
     return pearsonr(y.tot200, y.yhat)[0] 
@@ -83,12 +97,13 @@ def genetic_loop(df, num_lh, dv='off100', stop=1000000000000):
     return result #Can return best_vars if useful
 
 def prune(df=df, cutoff=.3,dv='tot200',iters=5):
-    reg = full_reg(dummy_out(df), dv)
+    reg = full_reg(df, dv)
     while iters > 0:
         p = pd.DataFrame(reg.pvalues,columns=['pvals'])
         lh_new =  list(p[p.pvals <= cutoff].index)
         reg = regress(df[lh_new],df[dv])
         iters -= 1
+        print 'itered'
     return reg, lh_new
 
 def regress(X, Y): # FASTER THAN PIPING, CHANGE TO RESULT>rsquared_adj
