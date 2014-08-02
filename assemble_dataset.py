@@ -1,27 +1,11 @@
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-import random
-
-def set_up():
-    assert False #DONT USE THIS: READ TRAIN.csv
-    colpro = make_colpro()
-    train, test =two_way_split(colpro, test_size=.1)
-    test.to_csv('testfile.csv')
-    return train
-
-def two_way_split(df, test_size=.5):
-    df = df.loc[np.random.choice(df.index, len(df), replace=False)]
-    train_size = np.round(len(df) * (1 - test_size))
-    rows = random.sample(df.index, int(train_size))
-    train = df.ix[rows]
-    test = df.drop(rows)
-    return train, test
 
 def lh_vars(colpro): #TODO: CACHE
     df = drop_unnamed(pd.read_csv('colmeas.csv'))
-    #df = dummy_out(df)
-    cp = drop_unnamed(colpro)
+    cp = dummy_out(drop_unnamed(colpro))
+    df = dummy_out(df)
     df = drop_unnamed(df)
     iv_list = []
     for col in df._get_numeric_data().columns:
@@ -30,20 +14,15 @@ def lh_vars(colpro): #TODO: CACHE
     return iv_list
 
 def dummy_out(df):
-    df = drop_unnamed(df.copy())
-    df = year_dummies(df)
     for col in df._get_numeric_data().columns:
-            fillna = df[col].fillna(-1)
-            if df[col].mean() != fillna.mean():
+            if df[col].mean() != df[col].fillna(-1).mean():
                 df[col] = df[col].fillna(-1)
                 df[col+'_NA'] = (df[col] == -1)
     return df
 
-def year_dummies(df):
-    for year in df.year.unique():
-        df['dum_' + str(year)] = (df.year == year)
-    df = df.drop('year',1)
-    return df
+def median_fill(df):
+    median_features = df._get_numeric_data().dropna().median()
+    return df._get_numeric_data().fillna(median_features)
 
 def drop_unnamed(df):
     to_drop = []
@@ -67,8 +46,7 @@ def make_colpro():
     col_meas.to_csv('colmeas.csv')
     bestrapm = pd.read_csv('bestRapm.csv')
     colpro = pd.merge(col_meas, bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
-    return colpro
-    #return dummy_out(colpro)
+    return drop_unnamed(dummy_out(colpro))
 
 def de_dup(df):
     df = df.sort('year')
