@@ -1,4 +1,4 @@
-'''Attempts to predict rapm using college stats-Sam Shleifer-2 August, 2014'''
+'''Attempts to predict rapm using college stats-Sam Shleifer-August 2nd, 2014'''
 
 from assemble_dataset import lh_vars, dummy_out, median_fill, drop_unnamed
 import matplotlib.pyplot as plt
@@ -9,29 +9,56 @@ from sklearn.preprocessing import Imputer, StandardScaler
 from sklearn.cross_validation import cross_val_score, train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import Pipeline
+
 CLEAN_TRAIN = pd.read_csv('train.csv')
 
-
-def rand_forest(df=CLEAN_TRAIN, dv='tot200'):
-    rfr = RandomForestRegressor()
+def pipe_attempt(df=CLEAN_TRAIN, dv='tot200'):
+    df = df.fillna(-1)
     feature_names = get_numeric_features(df)
-    target = np.array(df[dv])
-    df = median_fill(df)
-
-    params = {'n_estimators': [20, 30],
-              'max_features': [0.1],
-              'max_depth': [5, 6, 7, 8, 9, 10]}
-    gs = GridSearchCV(rfr, params, cv=5, scoring='r2')
-    gs.fit(df[feature_names], target)
-
-    print gs.best_params_
-    print gs.best_score_
+    print len(feature_names)
+    target = df[dv]
+    imputer = Imputer(strategy='median', missing_values=-1)
+    regressor = RandomForestRegressor(n_estimators=100, max_features=.25)
+    xtr, xt, ytr, yt = train_test_split(df[feature_names].values, df[dv].values)
+    print xtr.shape
+    imputer.fit(xtr)
+    xtr_imputed = imputer.transform(xtr)
+    print xtr_imputed.shape
+    r = regressor.fit(xtr_imputed, np.ravel(ytr))
+    #return df[feature_names], xtr_imputed
+    feature_plot(r, feature_names[1:])
+    #regressor = LinearRegression()
+    pipeline = Pipeline([
+        ('imp', imputer),
+        ('clf', regressor),
+    ])
+    scores = cross_val_score(pipeline, df[feature_names].values, target.values, cv=5)
+    print scores.mean()
+    rfr_params = {
+            'imp__strategy' : ['mean', 'median', 'most_frequent'],
+            'clf__max_features' : [0.1, 0.25, 1],
+            'clf__max_depth' : [10, 20, 30]}
+    lin_params = {
+            'imp__strategy' : ['mean', 'median', 'most_frequent'],
+            'clf__normalize': ['True', 'False']}
+    xtr, xt, ytr, yt = four_way_split(df[feature_names], target)
+    #gs = GridSearchCV(pipeline, lin_params, cv=5)
+    gs = GridSearchCV(pipeline, rfr_params, cv=5)
+    gs.fit(xtr, np.ravel(ytr))
     return gs
-    print cross_val_score(rfr,
-                          np.array(df[feature_names]),
-                          np.array(df.tot200),
-                          scoring='r2')
+# Running pipe_attempt, first for linear regression and then for RandomForest
+# shows that RF provides better out of sample predictions, and the ideal parameters.
+#Best = { max_depth: 10, max_features: .25, imp: mean}
+def gridded_rfr():
+    rfr = RandomForestRegressor(n_estimators=100, max_features=.25)
     return rfr
+
+def feature_plot(clf, feature_names):
+    x = np.arange(len(feature_names))
+    plt.bar(x, clf.feature_importances_)
+    _ = plt.xticks(x + 0.5, feature_names)
+    plt.show()
 
 COL_PATH = 'colData.csv'
 MEAS_PATH = 'measurements.csv'
@@ -46,6 +73,13 @@ def get_numeric_features(colpro):
             iv_list.append(column)
     return iv_list
 
+def four_way_split(x, y, test_size=.2):
+    xtrain, xtest, ytrain, ytest = train_test_split(x.values, y.values, test_size=test_size)
+    xtrain = pd.DataFrame(xtrain, columns=x.columns)
+    xtest = pd.DataFrame(xtest, columns=x.columns)
+    ytrain = pd.DataFrame(ytrain, columns=['dv'])
+    ytest = pd.DataFrame(ytest, columns=['dv'])
+    return xtrain, xtest, ytrain, ytest
 
 def plot_roc_curve(target_test, target_predicted_proba):
     fpr, tpr, thresholds = roc_curve(target_test, target_predicted_proba[:, 1])
@@ -83,22 +117,12 @@ def df_mapper(lh, df):
 def shuffle(df):
     return df.loc[np.random.choice(df.index, len(df), replace=False)]
 
-def four_way_split(df, dv=['tot200'], test_size=.2):
-    xtrain, xtest, ytrain, ytest = train_test_split(df[lh_vars(df)],
-                                                    df[dv],
-                                                    test_size=test_size,
-                                                    random_state=0)
-    xtrain = pd.DataFrame(xtrain, columns=lh_vars(df))
-    xtest = pd.DataFrame(xtest, columns=lh_vars(df))
-    ytrain = pd.DataFrame(ytrain, columns=[dv])
-    ytest = pd.DataFrame(ytest, columns=[dv])
-    return xtrain, xtest, ytrain, ytest
 
 
 def rfr_regression(full=CLEAN_TRAIN, dv='tot200', test_size=.7,
                    add_rfr=True, add_off=True, add_def=True):
     df = dummy_out(full.copy())
-    xtr, xt, ytr, yt = four_way_split(df, test_size=test_size)
+    xtr, xt, ytr, yt = four_way_split(df[get_numeric_features(df)].values, df[dv].values, test_size=test_size)
     if add_rfr:
         rfr = RandomForestRegressor()
         rfr.fit(np.array(xtr), np.array(ytr[dv].values))
