@@ -12,48 +12,20 @@ from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 
 CLEAN_TRAIN = pd.read_csv('train.csv')
+MOCK_TRAIN = pd.read_csv('mock_train.csv')
+
 COL_PATH = 'datasets/colData.csv'
 MEAS_PATH = 'datasets/measurements.csv'
+MOCK_PATH = 'datasets/dx_mock_drafts.csv'
 
-def rfr(train=CLEAN_TRAIN, target_var='tot200'):
-    '''Best model so far: RandomForestRegressor'''
-    train = train.fillna(-1)
-    feature_names = get_numeric_features(train)
-    X = train[feature_names].values
-    target = train[target_var].values
-    x_train, x_test, y_train, y_test = train_test_split(X, target)
-    imputer = median_imputer(x_train)
-    x_train_imputed = imputer.transform(x_train)
-    regressor = RandomForestRegressor(n_estimators=100, max_features=.25)
-    regressor.fit(x_train_imputed, np.ravel(y_train))
-    feature_plot(regressor, feature_names[1:])
-    print np.mean(cross_val_score(regressor, X, target, cv=5))
-    return regressor
-
-
-def feature_plot(clf, feature_names): #TODO FEATURE_NAME CROWDING
-    '''Plots feature importances associated with clf'''
-    x_axis = np.arange(len(feature_names))
-    plt.bar(x_axis, clf.feature_importances_)
-    _ = plt.xticks(x_axis + 0.5, feature_names)
-    plt.show()
-
-
-def median_imputer(x_train):
-    '''fits the median imputer'''
-    imputer = Imputer(strategy='median', missing_values=-1)
-    imputer.fit(x_train)
-    return imputer
-
-
-def make_pipeline(train=CLEAN_TRAIN, target_var='tot200'):
+def make_pipeline(train=MOCK_TRAIN, target_var='tot200'):
     '''Makes the median imputer -> rfr pipeline'''
     train = train.fillna(-1)
     feature_names = get_numeric_features(train)
     X = train[feature_names].values
     target = train[target_var].values
     x_train, x_test, y_train, y_test = train_test_split(X, target)
-    imputer = median_imputer(x_train)
+    imputer = fit_imputer(x_train)
     regressor = RandomForestRegressor(n_estimators=100, max_features=.25)
 
     ###GRID SEARCH###
@@ -83,15 +55,52 @@ def grid_search(info_tuple=None):
     return gs  #Best = { max_depth: 10, max_features: .25, imp: mean}
 
 
+def main():
+    return grid_search()
+
+def rfr(train=MOCK_TRAIN, target_var='tot200'):
+    '''Best model so far: RandomForestRegressor'''
+    train = train.fillna(-1)
+    feature_names = get_numeric_features(train)
+    print feature_names
+    X = train[feature_names].values
+    target = train[target_var].values
+    x_train, x_test, y_train, y_test = train_test_split(X, target)
+    imputer = fit_imputer(x_train)
+    x_train_imputed = imputer.transform(x_train)
+    regressor = RandomForestRegressor(n_estimators=100, max_features=1)
+    regressor.fit(x_train_imputed, np.ravel(y_train))
+    feature_plot(regressor, feature_names[1:])
+    print np.mean(cross_val_score(regressor, X, target, cv=5))
+    return regressor
+
+
+def feature_plot(clf, feature_names): #TODO FEATURE_NAME CROWDING
+    '''Plots feature importances associated with clf'''
+    x_axis = np.arange(len(feature_names))
+    plt.bar(x_axis, clf.feature_importances_)
+    _ = plt.xticks(x_axis + 0.5, feature_names)
+    plt.show()
+
+
+def fit_imputer(x_train, strategy='median'):
+    '''fits the median imputer'''
+    imputer = Imputer(strategy=strategy, missing_values=-1)
+    imputer.fit(x_train)
+    return imputer
+
+
+
 def get_numeric_features(colpro):
     '''Gets features that were not created after player was drafted'''
     col = drop_unnamed(pd.read_csv(COL_PATH)).columns
     meas = drop_unnamed(pd.read_csv(MEAS_PATH)).columns
+    mock = drop_unnamed(pd.read_csv(MOCK_PATH)).columns
     cp = drop_unnamed(colpro)
     iv_list = []
 
     for column in cp._get_numeric_data().columns:
-        if (column in col) or (column in meas):
+        if (column in col) or (column in meas) or (column in mock):
             iv_list.append(column)
     return iv_list
 
