@@ -4,7 +4,9 @@ import bs4
 import numpy as np
 import pandas as pd
 from constants import MOCK_URL, MEAS_URL, RAPM_URL, DX_YEARS
+
 def scrape_mock(year):
+    '''Scrapes a mock_draft off the web in a wierd format'''
     url = MOCK_URL + str(year) + '/list/'
     crap = pd.read_html(url, header=0, match='First Round')
     first_round = crap[-1]
@@ -20,8 +22,8 @@ def scrape_mock(year):
     return mock_draft
 
 
-def parse_mock_details(md):
-    '''cleans the ugly column of the scraped mock_draft'''
+def parse_mock_details(m_draft):
+    '''cleans the ugly column of the scraped m_draft'''
     def untangle_pos(x):
         tweeners = ['PG/SG', 'SG/SF', 'SF/PF', 'PF/C']
         for i in tweeners:
@@ -46,13 +48,10 @@ def parse_mock_details(md):
         inches = int(x[2:])
         return 12 * feet + inches
 
-    def jr_fix(x):
+    def wierd_name_fix(x):
         if 'Jr' in x[2]:
             x[2:] = x[3:]
-        return x
-
-    def nando_de_colo_fix(x):
-        if x[2] == 'Colo':
+        elif x[2] == 'Colo':
             x[1] += x[2]
             x[2:] = x[3:]
         return x
@@ -60,30 +59,32 @@ def parse_mock_details(md):
     def years_since(df):
         return 2014 - df.year.mean()
 
-    offset = years_since(md)
-    md['s'] = md['details'].str.split(' ')
-    md['s'] = md['s'].apply(lambda x: nando_de_colo_fix(jr_fix(x)))
-    md['name'] = md['s'].apply(lambda x: x[0] + ' ' + x[1])
-    md['pos'] = md['s'].apply(lambda x: untangle_pos(x[2]))
-    md['age'] = md['s'].apply(lambda x: int(x[2][-2:])- offset)
-    md['height'] = md['s'].apply(lambda x: height_to_inch(x[4][:-2]))
-    md['weight'] = md['s'].apply(lambda x: int(x[5]))
-    md['school'] = md['s'].apply(lambda x: untangle_school(x))
-    md['ac_year'] = md['s'].apply(lambda x: x[-1])
-    md = md.drop(['s', 'details'], 1)
-    return md
+    offset = years_since(m_draft)
+    m_draft['s'] = m_draft['details'].str.split(' ')
+    m_draft['s'] = m_draft['s'].apply(lambda x: wierd_name_fix(x))
+    m_draft['name'] = m_draft['s'].apply(lambda x: x[0] + ' ' + x[1])
+    m_draft['pos'] = m_draft['s'].apply(lambda x: untangle_pos(x[2]))
+    m_draft['age'] = m_draft['s'].apply(lambda x: int(x[2][-2:])- offset)
+    m_draft['height'] = m_draft['s'].apply(lambda x: height_to_inch(x[4][:-2]))
+    m_draft['weight'] = m_draft['s'].apply(lambda x: int(x[5]))
+    m_draft['school'] = m_draft['s'].apply(lambda x: untangle_school(x))
+    m_draft['ac_year'] = m_draft['s'].apply(lambda x: x[-1])
+    m_draft = m_draft.drop(['s', 'details'], 1)
+    return m_draft
 
 
 def make_mock_db(): #30 Seconds
+    '''Gets 8 mock drafts and appends them into one'''
     years = [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014]
-    df = pd.DataFrame()
+    mock_db = pd.DataFrame()
     for year in years:
         print year
-        df = df.append(parse_mock_details(scrape_mock(year)))
-    return df
+        mock_db = mock_db.append(parse_mock_details(scrape_mock(year)))
+    return mock_db
 
 
 def get_stats(year, level='pro'): #TODO Switch to regex patterns
+    '''Scrapes draftexpress.com/stats for of a given level, year'''
     front = 'http://www.draftexpress.com/stats.php?sort=8&q='
     pages = 2
     frontb = '&league=NBA&year=20'
@@ -115,20 +116,20 @@ def get_stats(year, level='pro'): #TODO Switch to regex patterns
     return df
 
 def get_all_cols(): #Produces colData.csv in 18 minutes
-    df = pd.DataFrame()
+    data = pd.DataFrame()
     for year in DX_YEARS:
-        df.append(get_stats(year, 'col'))
-    df.to_csv('datasets/colData.csv')
-    print df.shape
-    return df
+        data.append(get_stats(year, 'col'))
+    data.to_csv('datasets/colData.csv')
+    print data.shape
+    return data
 
 def get_all_pros():#Produces proData.csv
-    df = pd.DataFrame()
+    data = pd.DataFrame()
     for year in DX_YEARS:
-        df.append(get_stats(year, 'pro'))
-    df.to_csv('datasets/proData.csv')
-    print df.shape
-    return df
+        data.append(get_stats(year, 'pro'))
+    data.to_csv('datasets/proData.csv')
+    print data.shape
+    return data
 
 def get_all_rapm(): #Produced bestRapm.csv
     rapm = pd.concat([get_rapm('2001'), get_rapm('2002'), get_rapm('2003'),
@@ -159,9 +160,6 @@ def get_meas():
     df = dfs[5]
     df['name'] = df['Name'].str.split(' -').str.get(0)
     df['year'] = df['Name'].str.split('-').str.get(1)
-    df = df.drop_duplicates(cols='name',take_last=True)
+    df = df.drop_duplicates(cols='name', take_last=True)
     df = df[:2589]#TODO:WHY
     return df
-
-
-
