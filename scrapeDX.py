@@ -5,7 +5,7 @@ import html5lib
 import bs4
 import numpy as np
 import pandas as pd
-    
+
 def get_stats(year,level='pro'):
     front = 'http://www.draftexpress.com/stats.php?sort=8&q='
     pages = 2
@@ -97,7 +97,7 @@ def get_rapm(year):
     return ret
 
 ####MEASUREMENTS###
-def height_fix(df,flen):
+def height_fix(df,flen): #TODO: MAKE THIS AN APPLY
     df.new=df.str.split(' ')
     df.feet=df.new.str[0]
     df.feet=df.feet.str[flen].astype('float')
@@ -116,5 +116,86 @@ def get_meas():
     df['year']=df['Name'].str.split('-').str.get(1)
     df = df.drop_duplicates(cols='name',take_last=True)
     df = df[:2589]#TODO:WHY
+    return df
+
+
+def scrape_mock(year):
+    front = 'http://www.draftexpress.com/nba-mock-draft/'
+    back = '/list/'
+    url = front + str(year) + back
+    crap = pd.read_html(url, header=0, match = 'First Round')
+    first_round = crap[-1]
+    crap = pd.read_html(url, header=0, match ='Second Round')
+    second_round = crap[-1]
+    first_round.columns = ['pick','year', 'details']
+    second_round.columns = ['pick','year', 'details']
+    second_round['pick'] = second_round['pick'] + 30
+    mock_draft = first_round.append(second_round)
+    mock_draft['year'] = year
+    mock_draft = mock_draft.set_index('pick')
+    mock_draft['pick'] = mock_draft.index
+    return mock_draft
+
+
+def parse_mock_details(md):
+    '''cleans the ugly column of the scraped mock_draft'''
+    def untangle_pos(x):
+        tweeners = ['PG/SG', 'SG/SF', 'SF/PF','PF/C']
+        for i in tweeners:
+            if i in x:
+                return i
+        pos_list = ['PG', 'SG', 'SF', 'PF','C']
+        for i in pos_list:
+            if i in x:
+                return i
+
+    def untangle_school(x):
+        first_part = x[6][4:]
+        if len(x) == 8:
+            return first_part[:-1]
+        if len(x) == 9:
+            return first_part + x[7][:-1]
+        if len (x) > 9:
+            return first_part
+
+    def height_to_inch(x):
+        feet = int(x[0])
+        inches = int(x[2:])
+        return 12 * feet + inches
+
+    def jr_fix(x):
+        if 'Jr' in x[2]:
+            x[2:] = x[3:]
+        return x
+
+    def nando_de_colo_fix(x):
+        if x[2] == 'Colo':
+            x[3] = x[2] + x[3]
+            x[2:] = x[3:]
+        return x
+
+    def years_since(df):
+        return 2014 - df.year.mean()
+
+    offset = years_since(md)
+    md['s'] = md['details'].str.split(' ')
+    md['s'] = md['s'].apply(lambda x: nando_de_colo_fix(jr_fix(x)))
+    md['name'] = md['s'].apply(lambda x: x[0] + ' ' + x[1])
+    md['pos'] = md['s'].apply(lambda x: untangle_pos(x[2]))
+    md['age'] = md['s'].apply(lambda x: int(x[2][-2:])- offset)
+    md['height'] = md['s'].apply(lambda x: height_to_inch(x[4][:-2]))
+    md['weight'] = md['s'].apply(lambda x: int(x[5]))
+    md['school'] = md['s'].apply(lambda x: untangle_school(x))
+    md['ac_year'] = md['s'].apply(lambda x: x[-1])
+    md = md.drop(['s', 'details'],1)
+    return md
+
+
+def make_mock_db(): #30 Seconds
+    years  = [2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014]
+    df = pd.DataFrame()
+    for year in years:
+        print year
+        df = df.append(parse_mock_details(scrape_mock(year)))
     return df
 

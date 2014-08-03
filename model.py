@@ -21,10 +21,8 @@ def pipe_attempt(df=CLEAN_TRAIN, dv='tot200'):
     imputer = Imputer(strategy='median', missing_values=-1)
     regressor = RandomForestRegressor(n_estimators=100, max_features=.25)
     xtr, xt, ytr, yt = train_test_split(df[feature_names].values, df[dv].values)
-    print xtr.shape
     imputer.fit(xtr)
     xtr_imputed = imputer.transform(xtr)
-    print xtr_imputed.shape
     r = regressor.fit(xtr_imputed, np.ravel(ytr))
     #return df[feature_names], xtr_imputed
     feature_plot(r, feature_names[1:])
@@ -47,9 +45,9 @@ def pipe_attempt(df=CLEAN_TRAIN, dv='tot200'):
     gs = GridSearchCV(pipeline, rfr_params, cv=5)
     gs.fit(xtr, np.ravel(ytr))
     return gs
-# Running pipe_attempt, first for linear regression and then for RandomForest
-# shows that RF provides better out of sample predictions, and the ideal parameters.
+
 #Best = { max_depth: 10, max_features: .25, imp: mean}
+
 def gridded_rfr():
     rfr = RandomForestRegressor(n_estimators=100, max_features=.25)
     return rfr
