@@ -1,15 +1,13 @@
 import numpy as np
 import pandas as pd
-import statsmodels.api as sm
 
-def lh_vars(colpro): #TODO: CACHE
-    df = drop_unnamed(pd.read_csv('colmeas.csv'))
-    cp = dummy_out(drop_unnamed(colpro))
-    df = dummy_out(df)
-    df = drop_unnamed(df)
+def lh_vars(colpro, col_path = 'colData.csv', meas_path = 'measurements.csv'): #TODO: CACHE
+    col = drop_unnamed(pd.read_csv(col_path))
+    meas = drop_unnamed(pd.read_csv(meas_path))
+    cp = drop_unnamed(colpro)
     iv_list = []
-    for col in df._get_numeric_data().columns:
-        if col in cp._get_numeric_data():
+    for col in cp._get_numeric_data().columns:
+        if col in df._get_numeric_data():
             iv_list.append(col)
     return iv_list
 
@@ -46,7 +44,7 @@ def make_colpro():
     col_meas.to_csv('colmeas.csv')
     bestrapm = pd.read_csv('bestRapm.csv')
     colpro = pd.merge(col_meas, bestrapm, left_on='Name',right_on='name', suffixes=('','_p'))
-    return drop_unnamed(dummy_out(colpro))
+    return drop_unnamed(colpro)
 
 def de_dup(df):
     df = df.sort('year')
@@ -68,6 +66,5 @@ def year_fix(df):
 def read_meas():
     read_in = pd.read_csv('measurements.csv')
     df = year_fix(read_in)
-    df = dummy_out(df)
     df = df[df.year.astype('float') > 2000]
     return df
