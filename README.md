@@ -1,5 +1,5 @@
 ##nbaDraft
-Predicting NBA performance using college box-score stats and NBA combine measurements, using python.
+Predicting NBA performance with college box-score stats and NBA combine measurements and python.
 ###scrapeDX.py
   Creates dx_mock_drafts.csv, colData.csv, proData.csv, and measurements.csv
   by scraping draftexpress.com.
