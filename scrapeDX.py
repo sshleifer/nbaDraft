@@ -170,7 +170,7 @@ def parse_mock_details(md):
 
     def nando_de_colo_fix(x):
         if x[2] == 'Colo':
-            x[3] = x[2] + x[3]
+            x[1] = x[1] + x[2]
             x[2:] = x[3:]
         return x
 
