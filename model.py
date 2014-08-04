@@ -67,11 +67,22 @@ def rfr(train=CLEAN_TRAIN, target_var='tot200'):
     x_train, x_test, y_train, y_test = train_test_split(X, target)
     imputer = fit_imputer(x_train)
     x_train_imputed = imputer.transform(x_train)
-    regressor = RandomForestRegressor(n_estimators=100, max_features=1)
+    regressor = RandomForestRegressor(n_estimators=100, max_features=.25, max_depth =30)
     regressor.fit(x_train_imputed, np.ravel(y_train))
     feature_plot(regressor, feature_names[1:])
     print np.mean(cross_val_score(regressor, X, target, cv=5))
     return regressor
+
+def predict_with_rfr(rfr, x_test):
+    feature_names = get_numeric_features(x_test)
+    X = x_test[feature_names]
+    X = X.fillna(-1)
+    print X.irow(0)
+    imputer = fit_imputer(X)
+    X_imputed = imputer.transform(X)
+    print  X_imputed[0]
+    yhat = np.array(rfr.predict(X_imputed))
+    return zip(x_test.Name, np.round(yhat,3))
 
 
 def feature_plot(clf, feature_names): #TODO FEATURE_NAME CROWDING

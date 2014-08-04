@@ -43,14 +43,18 @@ def make_colpro():
     col_meas = pd.merge(col, meas, left_on='Name',
                         right_on='name', suffixes=('', '_m'))
     col_meas.to_csv('datasets/colmeas.csv')
+    col_meas = add_draft(col_meas)
+    col_meas = col_meas.drop(['weight'], 1)
+    x_test = col_meas[col_meas.year_d==2014]
+
+    col_meas['pick'] = col_meas['pick'].fillna(65)
     bestrapm = pd.read_csv('datasets/bestRapm.csv')
 
     colpro = pd.merge(col_meas, bestrapm, left_on='Name',
                       right_on='Name', suffixes=('', '_p'))
     colpro = small_clean(colpro)
-    colpro = add_draft(colpro)
-    colpro['pick'] = colpro['pick'].fillna(65)
-    return drop_unnamed(colpro)
+   # colpro = add_draft(colpro)
+    return drop_unnamed(colpro), drop_unnamed(x_test)
 
 def small_clean(colpro):
     colpro['Hand Length'] = colpro['Hand Length'].apply(lambda x: fake_zero(x))
@@ -66,7 +70,10 @@ def fake_zero(x):
 def add_draft(colpro, how='left'):
     draft = pd.read_csv(DRAFT_PATH)
     new = pd.merge(colpro, draft, on='Name', how=how, suffixes=('', '_d'))
-    return use_draft(new)
+    df = use_draft(new)
+    df = df.drop(['weight','ac_year'],1)
+    df['pick'] = df.pick.fillna(65)
+    return new
 
 def use_draft(df):
     df['heightshoes'] = fill_with_vals(np.array(df.heightshoes), np.array(df.height))
@@ -74,7 +81,6 @@ def use_draft(df):
     df['heightbare'] = fill_with_vals(np.array(df.heightbare), np.array(df.heightshoes))
     df['heightshoes'] = fill_with_vals(np.array(df.heightshoes), np.array(df.heightbare))
     df['Weight'] = fill_with_vals(np.array(df.Weight), np.array(df.weight))
-    df = df.drop(['weight','ac_year', 'year_d'],1)
     return df
 
 def fill_with_vals(a, b):
