@@ -12,13 +12,12 @@ from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 
 CLEAN_TRAIN = pd.read_csv('train.csv')
-MOCK_TRAIN = pd.read_csv('mock_train.csv')
 
 COL_PATH = 'datasets/colData.csv'
 MEAS_PATH = 'datasets/measurements.csv'
 MOCK_PATH = 'datasets/dx_mock_drafts.csv'
 
-def make_pipeline(train=MOCK_TRAIN, target_var='tot200'):
+def make_pipeline(train=CLEAN_TRAIN, target_var='tot200'):
     '''Makes the median imputer -> rfr pipeline'''
     train = train.fillna(-1)
     feature_names = get_numeric_features(train)
@@ -58,7 +57,7 @@ def grid_search(info_tuple=None):
 def main():
     return grid_search()
 
-def rfr(train=MOCK_TRAIN, target_var='tot200'):
+def rfr(train=CLEAN_TRAIN, target_var='tot200'):
     '''Best model so far: RandomForestRegressor'''
     train = train.fillna(-1)
     feature_names = get_numeric_features(train)

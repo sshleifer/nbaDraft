@@ -3,7 +3,32 @@ import html5lib
 import bs4
 import numpy as np
 import pandas as pd
-from constants import MOCK_URL, MEAS_URL, RAPM_URL, DX_YEARS
+from constants import MOCK_URL, MEAS_URL, RAPM_URL, DX_YEARS, DRAFT_URL
+DRAFT_YEARS = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014]
+MOCK_PATH = 'datasets/dx_mock_drafts.csv'
+DRAFT_PATH = 'datasets/drafts.csv'
+
+def scrape_draft(year):
+    def age_from_bday(x):
+        try:
+            return year - int (x[:4])
+        except:
+            return None
+
+    url = DRAFT_URL + str(year)
+    dfs = pd.read_html(url, header=0)
+    draft = dfs[-1][['Pick','Name', 'Birthday']]
+    draft['pick'] = draft.index + 1
+    draft['age'] = draft['Birthday'].apply(lambda x: age_from_bday(str(x)))
+    return draft[['Name','pick', 'age']]
+
+def draft_db():
+    db = pd.DataFrame()
+    for year in DRAFT_YEARS:
+        print year
+        db = db.append(scrape_draft(year))
+    db.to_csv('datasets/drafts.csv')
+    return db
 
 def scrape_mock(year):
     '''Scrapes a mock_draft off the web in a wierd format'''
@@ -21,6 +46,14 @@ def scrape_mock(year):
     mock_draft['pick'] = mock_draft.index
     return mock_draft
 
+def gather_picks():
+    mocks = pd.read_csv(MOCK_PATH)
+    drafts = pd.read_csv(DRAFT_PATH)
+    new = pd.merge(drafts, mocks, left_on='Name', right_on='name', how='left',suffixes=('', '_M'))
+    new['pick'] = new.pick_M.fillna(new.pick)
+    new = new.drop(['name','pick.1','pick_M'], 1)
+    new.to_csv('datasets/draft_mix.csv')
+    return new
 
 def parse_mock_details(m_draft):
     '''cleans the ugly column of the scraped m_draft'''

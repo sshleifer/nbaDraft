@@ -5,7 +5,7 @@ MEAS_PATH = 'datasets/measurements.csv'
 COL_PATH = 'datasets/colData.csv'
 BEST_RAPM_PATH = 'datasets/bestRapm.csv'
 COL_MEAS_PATH = 'datasets/colmeas.csv'
-MOCK_PATH = 'datasets/dx_mock_drafts.csv'
+DRAFT_PATH = 'datasets/draft_mix.csv'
 
 def numeric_feature_names(colpro):
     '''model.py's get_feature_names is a better version'''
@@ -48,6 +48,8 @@ def make_colpro():
     colpro = pd.merge(col_meas, bestrapm, left_on='Name',
                       right_on='Name', suffixes=('', '_p'))
     colpro = small_clean(colpro)
+    colpro = add_draft(colpro)
+    colpro['pick'] = colpro['pick'].fillna(65)
     return drop_unnamed(colpro)
 
 def small_clean(colpro):
@@ -61,18 +63,18 @@ def fake_zero(x):
     else:
         return x
 
-def add_mock(colpro, how='left'):
-    mock = pd.read_csv(MOCK_PATH)
-    new = pd.merge(colpro, mock, on='name', how=how, suffixes=('', '_d'))
-    return use_mock(new)
+def add_draft(colpro, how='left'):
+    draft = pd.read_csv(DRAFT_PATH)
+    new = pd.merge(colpro, draft, on='Name', how=how, suffixes=('', '_d'))
+    return use_draft(new)
 
-def use_mock(df):
+def use_draft(df):
     df['heightshoes'] = fill_with_vals(np.array(df.heightshoes), np.array(df.height))
     df['heightbare'] = fill_with_vals(np.array(df.heightbare), np.array(df.height))
     df['heightbare'] = fill_with_vals(np.array(df.heightbare), np.array(df.heightshoes))
     df['heightshoes'] = fill_with_vals(np.array(df.heightshoes), np.array(df.heightbare))
     df['Weight'] = fill_with_vals(np.array(df.Weight), np.array(df.weight))
-    df = df.drop(['weight', 'pick.1', 'ac_year', 'year_d'],1)
+    df = df.drop(['weight','ac_year', 'year_d'],1)
     return df
 
 def fill_with_vals(a, b):
@@ -81,7 +83,6 @@ def fill_with_vals(a, b):
         if value > 0:
             pass
         else:
-            print 'here'
             if b[i]:
                 a[i] = b[i]
     return a
