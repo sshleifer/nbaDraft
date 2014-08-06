@@ -4,11 +4,13 @@ import bs4
 import numpy as np
 import pandas as pd
 from constants import MOCK_URL, MEAS_URL, RAPM_URL, DX_YEARS, DRAFT_URL
+from assemble_dataset import drop_unnamed, order
 DRAFT_YEARS = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014]
 MOCK_PATH = 'datasets/dx_mock_drafts.csv'
 DRAFT_PATH = 'datasets/drafts.csv'
 DRAFT_MIX_PATH = 'datasets/draft_mix.csv'
-
+DRAFT_ORDER = ['year', 'Name', 'school', 'height', 'weight', 'pick_est', 'ac_year', 'from_mock']
+###MOCK DRAFT AND REAL DRAFT STATS###
 def scrape_draft(year):
     def age_from_bday(x):
         try:
@@ -20,15 +22,16 @@ def scrape_draft(year):
     dfs = pd.read_html(url, header=0)
     draft = dfs[-1][['Pick','Name', 'Birthday']]
     draft['pick'] = draft.index + 1
-    draft['age'] = draft['Birthday'].apply(lambda x: age_from_bday(str(x)))
+    draft['age'] = draft['Birthday'].astype('string').apply(age_from_bday)
     draft['year'] = year
-    return draft[['Name','pick', 'age']]
+    return draft[['Name','pick', 'age', 'year']]
 
 def draft_db():
     db = pd.DataFrame()
     for year in DRAFT_YEARS:
         print year
         db = db.append(scrape_draft(year))
+        print db.year
     db.to_csv(DRAFT_PATH)
     return db
 
@@ -52,8 +55,11 @@ def gather_picks():
     mocks = pd.read_csv(MOCK_PATH)
     drafts = pd.read_csv(DRAFT_PATH)
     new = pd.merge(drafts, mocks, left_on='Name', right_on='name', how='left',suffixes=('', '_M'))
-    new['pick'] = new.pick_M.fillna(new.pick)
-    new = new.drop(['name','pick.1','pick_M'], 1)
+    new['pick_est'] = new.pick_M.fillna(new.pick)
+    new['year'] = new.year.fillna(new.year_M).astype('int')
+    new['from_mock'] = new.year >= 2007
+    new = drop_unnamed(new.drop(['name','pick', 'pick.1','pick_M', 'year_M', 'age_M'], 1)).sort('year', ascending=False)
+    new = order(new[DRAFT_ORDER],DRAFT_ORDER)
     new.to_csv(DRAFT_MIX_PATH)
     return new
 
@@ -96,17 +102,16 @@ def parse_mock_details(m_draft):
 
     offset = years_since(m_draft)
     m_draft['s'] = m_draft['details'].str.split(' ')
-    m_draft['s'] = m_draft['s'].apply(lambda x: wierd_name_fix(x))
+    m_draft['s'] = m_draft['s'].apply(wierd_name_fix)
     m_draft['name'] = m_draft['s'].apply(lambda x: x[0] + ' ' + x[1])
     m_draft['pos'] = m_draft['s'].apply(lambda x: untangle_pos(x[2]))
     m_draft['age'] = m_draft['s'].apply(lambda x: int(x[2][-2:])- offset)
     m_draft['height'] = m_draft['s'].apply(lambda x: height_to_inch(x[4][:-2]))
     m_draft['weight'] = m_draft['s'].apply(lambda x: int(x[5]))
-    m_draft['school'] = m_draft['s'].apply(lambda x: untangle_school(x))
+    m_draft['school'] = m_draft['s'].apply(untangle_school)
     m_draft['ac_year'] = m_draft['s'].apply(lambda x: x[-1])
     m_draft = m_draft.drop(['s', 'details'], 1)
     return m_draft
-
 
 def make_mock_db(): #30 Seconds
     '''Gets 8 mock drafts and appends them into one'''
@@ -116,85 +121,3 @@ def make_mock_db(): #30 Seconds
         print year
         mock_db = mock_db.append(parse_mock_details(scrape_mock(year)))
     return mock_db
-
-
-def get_stats(year, level='pro'): #TODO Switch to regex patterns
-    '''Scrapes draftexpress.com/stats for of a given level, year'''
-    front = 'http://www.draftexpress.com/stats.php?sort=8&q='
-    pages = 2
-    frontb = '&league=NBA&year=20'
-    if level == 'col':
-        frontb = '&league=NCAA&year=20'
-        pages = 13
-    midA = '&per=per40pace&qual=prospects&sort2=DESC\
-            &pos=all&stage=all&min=10&conference=All&pageno='
-    back = '&sort=8'
-    url = front + frontb + year + midA+ '0' + back
-    reg = pd.DataFrame()
-    eff = pd.DataFrame()
-    for n in xrange(pages):
-        url = front + frontb + year + midA+ str(n) + back
-        eff_url = front + 'eff'+ frontb + year + midA+ str(n) + back
-        reg_temps = pd.read_html(url, header=0)
-        reg_temp = reg_temps[5]
-        eff_temps = pd.read_html(eff_url)
-        eff_temp = eff_temps[5]
-        eff_temp.to_csv('temp.csv')
-        eff_temp = pd.read_csv('temp.csv', header=3) #im ashamed
-        reg = reg.append(reg_temp)
-        eff = eff.append(eff_temp)
-    reg['year'] = 2000 + float(year)
-    eff['year'] = 2000 + float(year)
-    df = reg.merge(eff, how='inner', on='Name', suffixes=('', '_y'))
-    df = df.drop(['Cmp', 'Team_y', 'year_y', 'Min_y', 'Cmp_y', 'GP_y'], 1)
-    print df.shape
-    return df
-
-def get_all_cols(): #Produces colData.csv in 18 minutes
-    data = pd.DataFrame()
-    for year in DX_YEARS:
-        data.append(get_stats(year, 'col'))
-    data.to_csv('datasets/colData.csv')
-    print data.shape
-    return data
-
-def get_all_pros():#Produces proData.csv
-    data = pd.DataFrame()
-    for year in DX_YEARS:
-        data.append(get_stats(year, 'pro'))
-    data.to_csv('datasets/proData.csv')
-    print data.shape
-    return data
-
-def get_all_rapm(): #Produced bestRapm.csv
-    rapm = pd.concat([get_rapm('2001'), get_rapm('2002'), get_rapm('2003'),
-                      get_rapm('2004'), get_rapm('2005'), get_rapm('2006'),
-                      get_rapm('2007'), get_rapm('2008'), get_rapm('2009'),
-                      get_rapm('2010'), get_rapm('2011'), get_rapm('2012'),
-                      get_rapm('2013')])
-    rapm = rapm.rename(columns={'Defense per 100':'def100',
-                                'Off+Def per 200': 'tot200',
-                                'Offense per 100':'off100'})
-    rapm = rapm.drop(['Unnamed: 5'], 1)
-    rapm.to_csv('datasets/allRapm.csv')
-    rapm = rapm.sort('tot200', ascending=True)
-    rapm = rapm.drop_duplicates('Name', take_last=True)
-    rapm.to_csv('datasets/bestRapm.csv')
-    return rapm
-
-def get_rapm(year):
-    url = RAPM_URL + year + '.html'
-    rapm = pd.read_html(url, header=0)
-    ret = rapm[0]
-    ret['year'] = float(year)
-    return ret
-
-####MEASUREMENTS###
-def get_meas():
-    dfs = pd.read_html(MEAS_URL, header=0)
-    df = dfs[5]
-    dQf['name'] = df['Name'].str.split(' -').str.get(0)
-    df['year'] = df['Name'].str.split('-').str.get(1)
-    df = df.drop_duplicates(cols='name', take_last=True)
-    df = df[:2589]#TODO:WHY
-    return df
