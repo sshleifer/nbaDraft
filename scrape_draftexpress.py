@@ -7,6 +7,7 @@ from constants import MOCK_URL, MEAS_URL, RAPM_URL, DX_YEARS, DRAFT_URL
 DRAFT_YEARS = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014]
 MOCK_PATH = 'datasets/dx_mock_drafts.csv'
 DRAFT_PATH = 'datasets/drafts.csv'
+DRAFT_MIX_PATH = 'datasets/draft_mix.csv'
 
 def scrape_draft(year):
     def age_from_bday(x):
@@ -20,6 +21,7 @@ def scrape_draft(year):
     draft = dfs[-1][['Pick','Name', 'Birthday']]
     draft['pick'] = draft.index + 1
     draft['age'] = draft['Birthday'].apply(lambda x: age_from_bday(str(x)))
+    draft['year'] = year
     return draft[['Name','pick', 'age']]
 
 def draft_db():
@@ -27,7 +29,7 @@ def draft_db():
     for year in DRAFT_YEARS:
         print year
         db = db.append(scrape_draft(year))
-    db.to_csv('datasets/drafts.csv')
+    db.to_csv(DRAFT_PATH)
     return db
 
 def scrape_mock(year):
@@ -52,7 +54,7 @@ def gather_picks():
     new = pd.merge(drafts, mocks, left_on='Name', right_on='name', how='left',suffixes=('', '_M'))
     new['pick'] = new.pick_M.fillna(new.pick)
     new = new.drop(['name','pick.1','pick_M'], 1)
-    new.to_csv('datasets/draft_mix.csv')
+    new.to_csv(DRAFT_MIX_PATH)
     return new
 
 def parse_mock_details(m_draft):
@@ -137,8 +139,8 @@ def get_stats(year, level='pro'): #TODO Switch to regex patterns
         reg_temp = reg_temps[5]
         eff_temps = pd.read_html(eff_url)
         eff_temp = eff_temps[5]
-        eff_temp.to_csv('datasets/eff_temp.csv')
-        eff_temp = pd.read_csv('datasets/eff_temp.csv', header=3)
+        eff_temp.to_csv('temp.csv')
+        eff_temp = pd.read_csv('temp.csv', header=3) #im ashamed
         reg = reg.append(reg_temp)
         eff = eff.append(eff_temp)
     reg['year'] = 2000 + float(year)
@@ -191,7 +193,7 @@ def get_rapm(year):
 def get_meas():
     dfs = pd.read_html(MEAS_URL, header=0)
     df = dfs[5]
-    df['name'] = df['Name'].str.split(' -').str.get(0)
+    dQf['name'] = df['Name'].str.split(' -').str.get(0)
     df['year'] = df['Name'].str.split('-').str.get(1)
     df = df.drop_duplicates(cols='name', take_last=True)
     df = df[:2589]#TODO:WHY
